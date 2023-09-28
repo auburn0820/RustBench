@@ -5,13 +5,13 @@ use clap::Parser;
 pub(crate) struct Args {
 
     #[arg()]
-    http_method: String,
+    pub(crate) http_method: String,
     #[arg()]
-    url: String,
+    pub(crate) url: String,
     #[arg(short = 'r', long = "request")]
-    request_count: u32,
+    pub(crate) request_count: u32,
     #[arg(short = 't', long = "thread")]
-    thread_count: u32,
+    pub(crate) thread_count: u32,
 
     /// Number of times to greet
     #[arg(short, long, default_value_t = 1)]
