@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Error;
 use clap::Parser;
+use reqwest::Client;
 
 use crate::args::Args;
 use crate::http::send_request;
@@ -22,10 +23,11 @@ async fn main() {
             let method_clone = Arc::clone(&method);
             let url_clone = Arc::clone(&url);
             let data_clone = Arc::clone(&data);
+            let client = Client::new();
             tokio::spawn(async move {
                 for _ in 0..requests {
                     let data_option = Arc::clone(&data_clone).as_ref().clone();
-                    match send_request(method_clone.to_string(), url_clone.clone().to_string(), data_option).await {
+                    match send_request(&client, method_clone.to_string(), url_clone.clone().to_string(), data_option).await {
                         Ok(response) => {
                             if let Err(e) = print_response(response).await {
                                 eprintln!("Error printing response: {:?}", e);

@@ -8,8 +8,7 @@ use serde_json::{from_str, Value};
 
 use HttpMethod::*;
 
-pub async fn send_request(method: String, url: String, data: Option<String>) -> Result<Response> {
-    let client = Client::new();
+pub async fn send_request(client: &Client, method: String, url: String, data: Option<String>) -> Result<Response> {
     let method = HttpMethod::from_str(method.as_str()).unwrap();
     let data = match &data {
         Some(json_str) => {
