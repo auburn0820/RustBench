@@ -1,8 +1,10 @@
-use std::thread;
+use std::sync::Arc;
+
 use anyhow::Error;
 use clap::Parser;
+
 use crate::args::Args;
-use crate::http::make_request;
+use crate::http::send_request;
 
 mod args;
 mod http;
@@ -10,30 +12,34 @@ mod http;
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let requests = args.request_count / args.thread_count;
+    let method = Arc::new(args.http_method);
+    let url = Arc::new(args.url);
+    let data = Arc::new(args.data);
+    let requests = args.request_count;
 
-
-    match make_request(&*args.http_method, args.url).await {
-        Ok(response) => {
-            if let Err(e) = print_response(response).await {
-                eprintln!("Error printing response: {:?}", e);
-            }
-        }
-        Err(error) => { eprintln!("Error: {error}") }
-    }
-
-    let handles: Vec<_> = (0..args.thread_count)
+    let handles: Vec<_> = (0..requests)
         .map(|_| {
-            thread::spawn(move || {
+            let method_clone = Arc::clone(&method);
+            let url_clone = Arc::clone(&url);
+            let data_clone = Arc::clone(&data);
+            tokio::spawn(async move {
                 for _ in 0..requests {
-                    println!("Hello?");
+                    let data_option = Arc::clone(&data_clone).as_ref().clone();
+                    match send_request(method_clone.to_string(), url_clone.clone().to_string(), data_option).await {
+                        Ok(response) => {
+                            if let Err(e) = print_response(response).await {
+                                eprintln!("Error printing response: {:?}", e);
+                            }
+                        }
+                        Err(error) => { eprintln!("Error: {error}") }
+                    }
                 }
             })
         })
         .collect();
 
     for handle in handles {
-        handle.join().unwrap();
+        handle.await.unwrap();
     }
 }
 

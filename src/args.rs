@@ -12,6 +12,8 @@ pub(crate) struct Args {
     pub(crate) request_count: u32,
     #[arg(short = 't', long = "thread")]
     pub(crate) thread_count: u32,
+    #[arg(short = 'd', long = "data")]
+    pub(crate) data: Option<String>,
 
     /// Number of times to greet
     #[arg(short, long, default_value_t = 1)]
