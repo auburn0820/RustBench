@@ -1,9 +1,18 @@
+use std::io::{stdout, Write};
 use std::sync::Arc;
 
 use anyhow::Error;
 use clap::Parser;
+use futures::{stream, StreamExt};
 use reqwest::Client;
 use tokio::time::Instant;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use crossterm::{
+    cursor,
+    execute,
+    terminal::{self, ClearType},
+    ExecutableCommand
+};
 
 use crate::args::Args;
 use crate::http::send_request;
@@ -20,32 +29,34 @@ async fn main() {
     let requests = args.request_count;
 
     let start = Instant::now();
+    let client = Client::new();
 
-    let handles: Vec<_> = (0..requests)
-        .map(|_| {
-            let method_clone = Arc::clone(&method);
-            let url_clone = Arc::clone(&url);
-            let data_clone = Arc::clone(&data);
-            let client = Client::new();
-            tokio::task::spawn(async move {
-                for _ in 0..requests {
-                    let data_option = Arc::clone(&data_clone).as_ref().clone();
-                    match send_request(&client, method_clone.to_string(), url_clone.clone().to_string(), data_option).await {
-                        Ok(response) => {
-                            if let Err(e) = print_response(response).await {
-                                eprintln!("Error printing response: {:?}", e);
-                            }
-                        }
-                        Err(error) => { eprintln!("Error: {error}") }
-                    }
+    let success_count = Arc::new(AtomicUsize::new(0));
+
+    stream::iter(0..requests).map(|_| {
+        let method_clone = Arc::clone(&method);
+        let url_clone = Arc::clone(&url);
+        let data_clone = Arc::clone(&data);
+        let client_clone = client.clone();
+        let count_clone = Arc::clone(&success_count);
+
+        async move {
+            let data_option = Arc::clone(&data_clone).as_ref().clone();
+            match send_request(&client_clone, method_clone.to_string(), url_clone.clone().to_string(), data_option).await {
+                Ok(_) => {
+                    let count = count_clone.fetch_add(1, Ordering::Relaxed);
+                    stdout().execute(cursor::MoveTo(0, 0)).unwrap()
+                        .execute(terminal::Clear(ClearType::CurrentLine)).unwrap()
+                        .execute(cursor::MoveTo(0, 0)).unwrap();
+                    println!("Completed requests: {}", count + 1);
+                    stdout().flush().unwrap();
                 }
-            })
-        })
-        .collect();
-
-    for handle in handles {
-        handle.await.unwrap();
-    }
+                Err(error) => {
+                    eprintln!("Error: {}", error)
+                }
+            }
+        }
+    }).buffer_unordered(1_000).collect::<Vec<_>>().await;
 
     let duration = start.elapsed();
     println!("Time elapsed is: {:?}", duration)

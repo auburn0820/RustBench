@@ -10,8 +10,6 @@ pub(crate) struct Args {
     pub(crate) url: String,
     #[arg(short = 'r', long = "request")]
     pub(crate) request_count: u32,
-    #[arg(short = 't', long = "thread")]
-    pub(crate) thread_count: u32,
     #[arg(short = 'd', long = "data")]
     pub(crate) data: Option<String>,
 
